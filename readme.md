@@ -19,7 +19,7 @@ train an agent that beats random actions and pure MCTS in 2 minutes
   - M 'candidate models' which pull from the replay buffer and train 
     - each iteration they play against the 'best model' and if they win the 'best model' weights is updated 
     - include write/evaluation locks on 'best weights'
-  - 1 best model weights store 
+  - 1 best model weights store (PS / parameter server)
     - stores the best weights which are retrived by self-play and updated when candidates win 
 
 ![](imgs/2023-01-15-09-18-19.png)
