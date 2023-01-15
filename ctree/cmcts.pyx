@@ -41,8 +41,7 @@ cdef class Node:
         return self.node.action
 
     def select(self, float c_puct):
-        i = self.node.select(c_puct)
-        child = self.get_child(i)
+        child = create_py_node(self.node.select(c_puct))
         return (child, child.action)
 
     def get_child(self, int idx):
@@ -78,4 +77,4 @@ cdef class Node:
         return self.node.is_root()
 
     def __dealloc__(self):
-        pass # we need to handle this manually (see test.py)
+        pass # we need to handle this manually (see test.py) -- see delete_tree()

@@ -12,7 +12,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 import numpy as np
 
-
+# todo: replace with jax + support tpus
 class Net(nn.Module):
     """policy-value network module"""
 

@@ -17,7 +17,7 @@ cdef extern from "mcts.cpp" namespace "water":
 
         void expand(vector[int] actions, vector[float] priors)
         void update(float leaf_value)
-        int select(float c_puct)
+        CNode* select(float c_puct)
         void update_recursive(float leaf_value)
         float get_value(float c_puct)
         bool is_leaf()

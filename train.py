@@ -223,6 +223,7 @@ def train():
 
     N_rollout_workers -= 1
     rollout_workers = [BestWeightsWorker.remote(board, buffer, param_server) for _ in range(N_rollout_workers)]
+    # todo: support gpus/tpus
     trainer_workers = [CandidateWorker.remote(board, buffer, param_server, n_train_steps, batch_size, n_eval_games) for _ in range(M_trainer_workers)]
 
     # only one model evaluates every X epochs

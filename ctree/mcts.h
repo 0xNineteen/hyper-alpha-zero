@@ -19,7 +19,7 @@ namespace water {
             void expand(std::vector<int> actions, std::vector<float> priors);
             void update(float leaf_value);
             void update_recursive(float leaf_value);
-            int select(float c_puct);
+            CNode* select(float c_puct);
             float get_value(float c_puct);
             CNode* get_child(int idx);
             bool is_leaf();

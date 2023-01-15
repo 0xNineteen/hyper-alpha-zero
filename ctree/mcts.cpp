@@ -36,19 +36,20 @@ namespace water {
         return (int)this->children->size();
     }
 
-    int CNode::select(float c_puct) { 
+    CNode* CNode::select(float c_puct) { 
         float best_value = -1000000000; 
-        int best_idx = 0; 
+        CNode* best_child = 0; 
 
         for (int i = 0; i < (int)this->children->size(); i++) { 
-            float value = (*(this->children->at(i))).get_value(c_puct); 
+            CNode* child = this->children->at(i);
+            float value = (*child).get_value(c_puct); 
             if (value > best_value) { 
                 best_value = value; 
-                best_idx = i;
+                best_child = child;
             }
         }
 
-        return best_idx;
+        return best_child;
     }
 
     CNode* CNode::get_child(int idx) { 
