@@ -4,7 +4,7 @@ from mcts import MCTSPlayer
 import numpy as np
 import torch
 import ray
-from utils import get_augmented_data
+from utils import get_augmented_data, evaluate_n
 import time
 from mcts import Random
 from tqdm import tqdm
@@ -48,7 +48,8 @@ class BestWeightsWorker:
 
         while True:
             i += 1
-            self.update_weights() # todo: optimize with hash checking before pulling full statedict
+            # todo: optimize with hash checking before pulling full statedict
+            self.update_weights() 
 
             data = self.self_play_game()
             self.replay_buffer.add.remote(data)
@@ -140,8 +141,6 @@ class CandidateWorker():
         self.policy = PolicyValueNet(board.width, board.height)
         self.player = MCTSPlayer(
             policy_value_fn=self.policy.policy_value_fn,
-            is_self_play=False,
-            n_playout=n_playout,
         )
         self.replay_buffer = replay_buffer
         self.param_server = param_server
@@ -149,8 +148,6 @@ class CandidateWorker():
         self.best_policy = PolicyValueNet(board.width, board.height)
         self.best_player = MCTSPlayer(
             policy_value_fn=self.best_policy.policy_value_fn,
-            is_self_play=False,
-            n_playout=n_playout,
         )
 
         self.n_eval_games = n_eval_games
@@ -203,44 +200,12 @@ class CandidateWorker():
 
         wins = evaluate_n(self.board, self.player, self.best_player, self.n_eval_games)
         if wins > self.n_eval_games // 2: # > 50% win rate
-            # todo: dont override if new weights have already been updated
             print(f"won {wins}/{self.n_eval_games}: updating best weights...")
             weights = self.policy.get_weights()
             self.param_server.set_weights.remote(weights)
 
-@torch.no_grad()
-def evaluate_n(board, player1, player2, n_games):
-    wins = 0
-    for _ in range(n_games):
-        winner = evaluate(board, player1, player2)
-        if winner == 1:
-            wins += 1
-    return wins
-
-@torch.no_grad()
-def evaluate(board, player1, player2):
-    board.init_board()
-    players = [player1, player2]
-    i = 0
-    while True:
-        player = players[i % 2]
-        move = player.get_action(board, reset_tree=True)
-        board.do_move(move)
-        i += 1
-        end, winner = board.game_end()
-        if end:
-            break
-
-    return winner
-
-
 def train():
     ray.init()
-
-    board = Board(width=6, height=6, n_in_row=3)
-    # init weights
-    policy = PolicyValueNet(board.width, board.height)
-
 
     batch_size = 256
     n_train_steps = 500
@@ -249,14 +214,18 @@ def train():
     N_rollout_workers = 2
     M_trainer_workers = 4
 
-    # train
-    print("starting...")
+    board = Board(width=6, height=6, n_in_row=3)
+    policy = PolicyValueNet(board.width, board.height)
+
+    print('setting up ray...')
     buffer = ReplayBuffer.remote(max_buffer_size)
     param_server = BestWeightsParameterServer.remote(policy.get_weights())
 
     N_rollout_workers -= 1
     rollout_workers = [BestWeightsWorker.remote(board, buffer, param_server) for _ in range(N_rollout_workers)]
     trainer_workers = [CandidateWorker.remote(board, buffer, param_server, n_train_steps, batch_size, n_eval_games) for _ in range(M_trainer_workers)]
+
+    # only one model evaluates every X epochs
     rollout_workers += [BestWeightsWorker.remote(board, buffer, param_server, True)]
 
     # start
@@ -264,36 +233,6 @@ def train():
     ts = [w.run.remote() for w in trainer_workers]
 
     ray.get(rs + ts)
-
-    # # self_play in parralel [x]
-    # # train in parralel by reading from self_play [x]
-    # # cython for mcts [x]
-
-    # for iter in (pbar := tqdm(range(100))):
-    #     # start 5 self-play games in parallel
-    #     play_data = ray.get([self_play.remote(board, player) for _ in range(5)])
-    #     for d in play_data:
-    #         buffer.extend(d)
-
-    #     # sample
-    #     if len(buffer) < batch_size:
-    #         continue
-
-    #     for _ in range(n_train_steps):
-    #         idxs = np.random.choice(len(buffer), batch_size, replace=False)
-    #         state, probs, winner = zip(*[buffer[i] for i in idxs])
-    #         loss, entropy = policy.train_step(state, probs, winner)
-    #     pbar.set_description("loss: {}, entropy: {}".format(loss, entropy))
-
-    #     # evaluate
-    #     if (iter + 1) % eval_every == 0:
-    #         print("evaluating...")
-    #         winners = []
-    #         for _ in tqdm(range(n_games_eval)):
-    #             winner = evaluate(board, player, pure_mcts)
-    #             winners.append(winner)
-    #         n_alpha_wins = np.sum(winner == 1)
-    #         print("alpha zero wins: {} / {}".format(n_alpha_wins, n_games_eval))
 
 
 if __name__ == "__main__":

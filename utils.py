@@ -1,5 +1,29 @@
 import numpy as np
+import torch
 
+@torch.no_grad()
+def evaluate_n(board, player1, player2, n_games):
+    wins = 0
+    for _ in range(n_games):
+        winner = evaluate(board, player1, player2)
+        if winner == 1:
+            wins += 1
+    return wins
+
+@torch.no_grad()
+def evaluate(board, player1, player2):
+    board.init_board()
+    players = [player1, player2]
+    i = 0
+    while True:
+        player = players[i % 2]
+        move = player.get_action(board, reset_tree=True)
+        board.do_move(move)
+        i += 1
+        end, winner = board.game_end()
+        if end:
+            break
+    return winner
 
 def get_augmented_data(board, play_data):
     """augment the data set by rotation and flipping
